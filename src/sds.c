@@ -41,6 +41,11 @@
 
 const char *SDS_NOINIT = "SDS_NOINIT";
 
+/*
+ *
+ * 取得不同字串型態的檔頭大小
+ * 2023/04/01
+ */
 static inline int sdsHdrSize(char type) {
     switch(type&SDS_TYPE_MASK) {
         case SDS_TYPE_5:
@@ -57,6 +62,11 @@ static inline int sdsHdrSize(char type) {
     return 0;
 }
 
+/*
+ *
+ * 取得字串型態
+ * 2023/04/01
+ */
 static inline char sdsReqType(size_t string_size) {
     if (string_size < 1<<5)
         return SDS_TYPE_5;
@@ -73,6 +83,11 @@ static inline char sdsReqType(size_t string_size) {
 #endif
 }
 
+/*
+ *
+ * 取得該型態最大容量
+ * 2023/04/01
+ */
 static inline size_t sdsTypeMaxSize(char type) {
     if (type == SDS_TYPE_5)
         return (1<<5) - 1;
@@ -101,30 +116,50 @@ static inline size_t sdsTypeMaxSize(char type) {
  * end of the string. However the string is binary safe and can contain
  * \0 characters in the middle, as the length is stored in the sds header. */
 sds _sdsnewlen(const void *init, size_t initlen, int trymalloc) {
+
     void *sh;
     sds s;
     char type = sdsReqType(initlen);
     /* Empty strings are usually created in order to append. Use type 8
      * since type 5 is not good at this. */
     if (type == SDS_TYPE_5 && initlen == 0) type = SDS_TYPE_8;
+    
+    // 記錄字串 檔頭的大小 2023/04/01
     int hdrlen = sdsHdrSize(type);
-    unsigned char *fp; /* flags pointer. */
+
+    unsigned char *fp; /* flags pointer. */ 
     size_t usable;
 
     assert(initlen + hdrlen + 1 > initlen); /* Catch size_t overflow */
-    sh = trymalloc?
+
+    // do dynamic memory allocation 2023/04/01
+    sh = (trymalloc)?
         s_trymalloc_usable(hdrlen+initlen+1, &usable) :
         s_malloc_usable(hdrlen+initlen+1, &usable);
+    
     if (sh == NULL) return NULL;
+
     if (init==SDS_NOINIT)
         init = NULL;
     else if (!init)
         memset(sh, 0, hdrlen+initlen+1);
+
+    // 將 s 移動到使用者可以存取的起始位址 2023/04/01
     s = (char*)sh+hdrlen;
+    
+    // 將 fp 移動到記錄 flag value的起始位置 2023/04/01
     fp = ((unsigned char*)s)-1;
+
+    // 計算出實際給使用者儲存的空間大小 2023/04/01
     usable = usable-hdrlen-1;
+
     if (usable > sdsTypeMaxSize(type))
         usable = sdsTypeMaxSize(type);
+
+    /*
+     * 這一段用來處裡不同字串型態的初始化
+     * 2023/04/01
+     */
     switch(type) {
         case SDS_TYPE_5: {
             *fp = type | (initlen << SDS_TYPE_BITS);
@@ -159,9 +194,11 @@ sds _sdsnewlen(const void *init, size_t initlen, int trymalloc) {
             break;
         }
     }
+
     if (initlen && init)
         memcpy(s, init, initlen);
     s[initlen] = '\0';
+    
     return s;
 }
 
@@ -195,6 +232,13 @@ void sdsfree(sds s) {
     if (s == NULL) return;
     s_free((char*)s-sdsHdrSize(s[-1]));
 }
+
+/*
+ *
+ * 上述 `sdsnewlen` `sdstrynewlen` `sysempty` `sdsnew` `sdsdup` `sdsfree`，就是一系列的字串操作函數
+ * 2023/04/01
+ */
+
 
 /* Set the sds string length to the length as obtained with strlen(), so
  * considering as content only up to the first null term character.

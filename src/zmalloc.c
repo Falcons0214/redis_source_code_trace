@@ -91,6 +91,11 @@ void zlibc_free(void *ptr) {
 #define update_zmalloc_stat_alloc(__n) atomicIncr(used_memory,(__n))
 #define update_zmalloc_stat_free(__n) atomicDecr(used_memory,(__n))
 
+/*
+ *
+ * record how many memory redis used.
+ * 2023/04/01
+ */
 static redisAtomic size_t used_memory = 0;
 
 static void zmalloc_default_oom(size_t size) {
@@ -102,11 +107,18 @@ static void zmalloc_default_oom(size_t size) {
 
 static void (*zmalloc_oom_handler)(size_t) = zmalloc_default_oom;
 
+
+/*
+ * 
+ * allocate memory & updata `used_memory`
+ * 2023/04/01
+ */
 /* Try allocating memory, and return NULL if failed.
  * '*usable' is set to the usable size if non NULL. */
 void *ztrymalloc_usable(size_t size, size_t *usable) {
     /* Possible overflow, return NULL, so that the caller can panic or handle a failed allocation. */
     if (size >= SIZE_MAX/2) return NULL;
+    
     void *ptr = malloc(MALLOC_MIN_SIZE(size)+PREFIX_SIZE);
 
     if (!ptr) return NULL;
